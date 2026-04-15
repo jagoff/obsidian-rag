@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-rag",
+  "name": "Obsidian RAG",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Consulta semántica del vault desde el editor vía el MCP server local obsidian-rag-mcp.",
+  "author": "Fernando Ferrari",
+  "isDesktopOnly": true
+}

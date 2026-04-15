@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-rag-plugin",
+  "version": "0.1.0",
+  "description": "Obsidian plugin que consulta el vault vía el MCP local obsidian-rag-mcp.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["obsidian", "rag", "mcp"],
+  "author": "Fernando Ferrari",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
