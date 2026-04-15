@@ -11,13 +11,13 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-interface RagSettings {
+export interface RagSettings {
   binaryPath: string;
   queryTimeoutMs: number;
   topK: number;
 }
 
-const DEFAULT_SETTINGS: RagSettings = {
+export const DEFAULT_SETTINGS: RagSettings = {
   binaryPath: "/Users/fer/.local/bin/obsidian-rag-mcp",
   queryTimeoutMs: 30_000,
   topK: 5,
@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: RagSettings = {
 
 export const VIEW_TYPE_RAG_RESULTS = "obsidian-rag-results";
 
-interface RagHit {
+export interface RagHit {
   path: string;
   note: string;
   score: number;
@@ -172,7 +172,7 @@ export default class ObsidianRagPlugin extends Plugin {
   }
 }
 
-function parseHits(resp: unknown): RagHit[] {
+export function parseHits(resp: unknown): RagHit[] {
   const content = (resp as { content?: Array<{ type: string; text?: string }> })
     ?.content;
   if (!Array.isArray(content)) return [];
@@ -194,7 +194,7 @@ function parseHits(resp: unknown): RagHit[] {
   }
 }
 
-function withTimeout<T>(
+export function withTimeout<T>(
   p: Promise<T>,
   ms: number,
   label: string,
@@ -214,7 +214,7 @@ function withTimeout<T>(
   });
 }
 
-class RagResultsView extends ItemView {
+export class RagResultsView extends ItemView {
   constructor(leaf: WorkspaceLeaf, private plugin: ObsidianRagPlugin) {
     super(leaf);
   }
@@ -289,7 +289,7 @@ class RagResultsView extends ItemView {
   }
 }
 
-class RagSettingTab extends PluginSettingTab {
+export class RagSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: ObsidianRagPlugin) {
     super(app, plugin);
   }

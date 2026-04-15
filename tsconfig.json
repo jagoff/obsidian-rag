@@ -14,5 +14,6 @@
     "esModuleInterop": true,
     "lib": ["DOM", "ES2022"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "tests"]
 }
