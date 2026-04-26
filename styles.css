@@ -1,45 +1,286 @@
-.rag-header {
-  padding: 8px 12px;
+/* ── Sidebar shell ─────────────────────────────────────────────────────── */
+.rag-sidebar-view {
+  /* No padding global — cada panel maneja el suyo. */
+}
+
+.rag-sidebar-empty-shell {
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  text-align: center;
+}
+
+/* ── Panel container (uno por panel registrado) ─────────────────────────── */
+.rag-panel {
   border-bottom: 1px solid var(--background-modifier-border);
 }
-.rag-query {
+
+.rag-panel:last-child {
+  border-bottom: none;
+}
+
+.rag-panel.rag-panel-dragging {
+  opacity: 0.4;
+}
+
+.rag-panel.rag-panel-drag-target {
+  border-top: 2px solid var(--interactive-accent);
+}
+
+/* Header — colapsable + drag handle. */
+.rag-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--background-secondary);
+}
+
+.rag-panel-header:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.rag-panel-chevron,
+.rag-panel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.rag-panel-title {
+  flex: 1;
   font-weight: 600;
   font-size: var(--font-ui-small);
+  color: var(--text-normal);
 }
-.rag-count {
-  font-size: var(--font-ui-smaller);
+
+.rag-panel-refresh {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
-  margin-top: 2px;
+  border-radius: 3px;
+  cursor: pointer;
 }
-.rag-hits {
+
+.rag-panel-refresh:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+/* Body — donde el panel.render escribe. */
+.rag-panel-body {
   padding: 8px 0;
 }
-.rag-hit {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
+
+.rag-panel-collapsed .rag-panel-body {
+  display: none;
 }
-.rag-hit-title {
+
+/* Estados generic del BasePanel. */
+.rag-panel-loading,
+.rag-panel-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  text-align: center;
+}
+
+.rag-panel-error {
+  padding: 12px;
+  background-color: var(--background-modifier-error);
+  margin: 8px 12px;
+  border-radius: 4px;
+}
+
+.rag-panel-error-title {
+  font-weight: 600;
+  color: var(--text-error);
+  margin-bottom: 4px;
+}
+
+.rag-panel-error-detail {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* ── Related notes panel ───────────────────────────────────────────────── */
+.rag-related-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-related-card {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.rag-related-card:last-child {
+  border-bottom: none;
+}
+
+.rag-related-title {
+  font-weight: 600;
+  color: var(--text-accent);
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.rag-related-title:hover {
+  text-decoration: underline;
+}
+
+.rag-related-meta {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 4px;
+}
+
+.rag-related-folder {
+  /* Truncar folders profundos para no romper el layout. */
+  max-width: 50%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rag-related-score {
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.rag-related-reason {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+}
+
+.rag-related-reason-link {
+  background-color: var(--color-green);
+  color: var(--text-on-accent);
+}
+
+.rag-related-reason-tags {
+  background-color: var(--color-yellow);
+  color: var(--text-on-accent);
+}
+
+.rag-related-reason-both {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.rag-related-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rag-related-chip {
+  padding: 1px 6px;
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+/* ── Semantic search panel ─────────────────────────────────────────────── */
+.rag-semantic-toolbar {
+  padding: 0 12px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rag-semantic-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.rag-semantic-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.rag-semantic-action {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: var(--font-ui-smaller);
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rag-semantic-action:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.rag-semantic-results {
+  /* La lista de hits ocupa todo el body restante. */
+}
+
+.rag-semantic-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-semantic-card {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.rag-semantic-card:last-child {
+  border-bottom: none;
+}
+
+.rag-semantic-title {
   font-weight: 600;
   color: var(--text-accent);
   cursor: pointer;
   text-decoration: none;
 }
-.rag-hit-title:hover {
+
+.rag-semantic-title:hover {
   text-decoration: underline;
 }
-.rag-hit-meta {
+
+.rag-semantic-meta {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   margin: 3px 0 6px 0;
 }
-.rag-hit-snippet {
+
+.rag-semantic-snippet {
   font-size: var(--font-ui-small);
   white-space: pre-wrap;
   color: var(--text-normal);
 }
-.rag-empty,
-.rag-loading {
-  padding: 16px 12px;
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
+
+/* ── Settings tab ──────────────────────────────────────────────────────── */
+.rag-settings h3 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-size: var(--font-ui-medium);
 }

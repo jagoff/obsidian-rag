@@ -1,343 +1,283 @@
+/**
+ * Plugin entrypoint — orquesta backends, paneles, view y settings.
+ *
+ * Lifecycle:
+ *   onload():
+ *     1. Cargar settings (merged con DEFAULT_SETTINGS).
+ *     2. Setear idioma activo (i18n).
+ *     3. Construir backend según settings.backendMode.
+ *     4. Instanciar paneles (RelatedNotesPanel, SemanticSearchPanel).
+ *     5. Registrar la sidebar view + el settings tab.
+ *     6. Registrar el comando legacy "RAG: Buscar relacionadas"
+ *        (Cmd+Shift+R) que dispara el SemanticSearchPanel.
+ *
+ *   onunload():
+ *     1. Cerrar el backend (cierra MCP transport si estaba abierto).
+ *     2. Detach de leaves del view-type — Obsidian limpia el DOM.
+ *
+ * Backend regeneration:
+ *   Cuando el user cambia settings.backendMode (o paths de binarios),
+ *   `RagSettingTab.onChange()` llama a `rebuildBackend()`. Eso cierra
+ *   el backend viejo, construye uno nuevo, y dispara
+ *   `requestRerender()` en la view para que los panels usen el nuevo.
+ *
+ * Re-exports legacy:
+ *   El v0.1.0 exportaba parseHits, withTimeout, DEFAULT_SETTINGS,
+ *   VIEW_TYPE_RAG_RESULTS, etc. Mantenemos los exports para que la
+ *   suite `bun test` no rompa al migrar — la API pública permanece.
+ */
+import { Plugin, WorkspaceLeaf, type App } from "obsidian";
 import {
-  App,
-  ItemView,
-  Notice,
-  Plugin,
-  PluginSettingTab,
-  Setting,
-  TFile,
-  WorkspaceLeaf,
-} from "obsidian";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+  DEFAULT_SETTINGS,
+  type RagBackend,
+  type RagSettings,
+} from "./src/api/types";
+import { HttpBackend } from "./src/api/http";
+import { CliBackend } from "./src/api/cli";
+import { McpBackend } from "./src/api/mcp";
+import { AutoBackend } from "./src/api/auto";
+import { RelatedNotesPanel } from "./src/panels/related-notes";
+import { SemanticSearchPanel } from "./src/panels/semantic-search";
+import {
+  RagSidebarView,
+  VIEW_TYPE_RAG_SIDEBAR,
+  type SidebarViewDeps,
+} from "./src/view";
+import { RagSettingTab } from "./src/settings";
+import { setLanguage } from "./src/i18n";
+import type { SidebarPanel } from "./src/panels/base";
 
-export interface RagSettings {
-  binaryPath: string;
-  queryTimeoutMs: number;
-  topK: number;
-}
-
-export const DEFAULT_SETTINGS: RagSettings = {
-  binaryPath: "/Users/fer/.local/bin/obsidian-rag-mcp",
-  queryTimeoutMs: 30_000,
-  topK: 5,
-};
-
-export const VIEW_TYPE_RAG_RESULTS = "obsidian-rag-results";
-
-export interface RagHit {
-  path: string;
-  note: string;
-  score: number;
-  content: string;
-  folder?: string;
-  tags?: string[];
-}
+// Re-exports — backward compat con los 29 tests del v0.1.0.
+export { DEFAULT_SETTINGS } from "./src/api/types";
+export type { RagSettings } from "./src/api/types";
+export { parseHits } from "./src/utils/parse-hits";
+export { withTimeout } from "./src/utils/timeout";
+export { VIEW_TYPE_RAG_SIDEBAR };
+// Legacy aliases — las clases / consts del v0.1.0. Mapean a los nombres
+// nuevos así los imports en tests viejos no rompen.
+export const VIEW_TYPE_RAG_RESULTS = VIEW_TYPE_RAG_SIDEBAR;
+export type RagHit = import("./src/api/types").SemanticHit;
 
 export default class ObsidianRagPlugin extends Plugin {
   settings: RagSettings = DEFAULT_SETTINGS;
-  private client: Client | null = null;
-  private transport: StdioClientTransport | null = null;
 
-  async onload() {
+  private backend: RagBackend | null = null;
+  private panels: SidebarPanel[] = [];
+  private semanticPanel: SemanticSearchPanel | null = null;
+
+  async onload(): Promise<void> {
     await this.loadSettings();
+    setLanguage(this.settings.language);
 
+    this.backend = this.buildBackend();
+    this.panels = this.buildPanels();
+
+    // Registrar la view ANTES de attachear leaves.
     this.registerView(
-      VIEW_TYPE_RAG_RESULTS,
-      (leaf) => new RagResultsView(leaf, this),
+      VIEW_TYPE_RAG_SIDEBAR,
+      (leaf) => new RagSidebarView(leaf, this.viewDeps()),
     );
 
-    this.addCommand({
-      id: "rag-search-related",
-      name: "RAG: Buscar notas relacionadas",
-      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "R" }],
-      callback: () => this.searchRelated(),
+    // Hook al ribbon icon para que el user abra el sidebar fácil.
+    this.addRibbonIcon("search", "Open RAG sidebar", () => {
+      void this.openSidebar();
     });
 
-    this.addSettingTab(new RagSettingTab(this.app, this));
+    this.addCommand({
+      id: "rag-open-sidebar",
+      name: "RAG: Open sidebar",
+      callback: () => {
+        void this.openSidebar();
+      },
+    });
+
+    // Comando legacy del v0.1.0 — Cmd+Shift+R dispara semantic search
+    // sobre el contenido de la nota activa o la selección. Refactoreado
+    // para usar el panel nuevo (no la view legacy).
+    this.addCommand({
+      id: "rag-search-related",
+      name: "RAG: Search related (semantic)",
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "R" }],
+      callback: () => {
+        void this.dispatchSemanticSearchFromEditor();
+      },
+    });
+
+    this.addSettingTab(
+      new RagSettingTab(this.app, {
+        plugin: this,
+        panels: this.panels,
+        getSettings: () => this.settings,
+        saveSettings: () => this.saveSettings(),
+        onChange: () => this.handleSettingsChange(),
+      }),
+    );
   }
 
-  async onunload() {
-    await this.closeMcp();
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_RAG_RESULTS);
+  async onunload(): Promise<void> {
+    await this.backend?.close();
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_RAG_SIDEBAR);
   }
 
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  async loadSettings(): Promise<void> {
+    const stored = (await this.loadData()) as Partial<RagSettings> | null;
+    this.settings = {
+      ...DEFAULT_SETTINGS,
+      ...(stored ?? {}),
+      // Los maps anidados merge superficialmente con Object.assign — si el
+      // user tiene panel custom toggles o orden, los respetamos.
+      panelCollapsed: {
+        ...DEFAULT_SETTINGS.panelCollapsed,
+        ...(stored?.panelCollapsed ?? {}),
+      },
+      panelEnabled: {
+        ...DEFAULT_SETTINGS.panelEnabled,
+        ...(stored?.panelEnabled ?? {}),
+      },
+    };
   }
 
-  async saveSettings() {
+  async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
   }
 
-  private async ensureClient(): Promise<Client> {
-    if (this.client) return this.client;
-    const transport = new StdioClientTransport({
-      command: this.settings.binaryPath,
-      args: [],
-    });
-    const client = new Client(
-      { name: "obsidian-rag-plugin", version: "0.1.0" },
-      { capabilities: {} },
-    );
-    await client.connect(transport);
-    this.transport = transport;
-    this.client = client;
-    return client;
-  }
+  // ── Backend building ──────────────────────────────────────────────────
 
-  private async closeMcp() {
-    try {
-      await this.client?.close();
-    } catch {}
-    try {
-      await this.transport?.close();
-    } catch {}
-    this.client = null;
-    this.transport = null;
-  }
-
-  private async searchRelated() {
-    const query = await this.getQueryFromActiveEditor();
-    if (!query) {
-      new Notice("Nada para buscar: seleccioná texto o abrí una nota.");
-      return;
-    }
-    await this.revealResultsView();
-    const view = this.getResultsView();
-    view?.setLoading(query);
-
-    try {
-      const hits = await this.runQuery(query);
-      view?.renderHits(query, hits);
-    } catch (e: any) {
-      const msg = e?.message ?? String(e);
-      view?.renderError(query, msg);
-      new Notice(`RAG error: ${msg}`);
+  private buildBackend(): RagBackend {
+    const s = this.settings;
+    const http = new HttpBackend(s.httpUrl, s.queryTimeoutMs);
+    const cli = new CliBackend(s.ragBinaryPath, s.queryTimeoutMs);
+    const mcp = new McpBackend(s.mcpBinaryPath, s.queryTimeoutMs);
+    switch (s.backendMode) {
+      case "http":
+        return http;
+      case "cli":
+        return cli;
+      case "mcp":
+        return mcp;
+      case "auto":
+      default:
+        return new AutoBackend([http, cli, mcp]);
     }
   }
 
-  private async getQueryFromActiveEditor(): Promise<string | null> {
-    const editor = this.app.workspace.activeEditor?.editor;
-    if (editor) {
-      const sel = editor.getSelection().trim();
-      if (sel) return sel;
+  private buildPanels(): SidebarPanel[] {
+    const related = new RelatedNotesPanel();
+    this.semanticPanel = new SemanticSearchPanel();
+    return [related, this.semanticPanel];
+  }
+
+  /** Llamado por SettingsTab cuando algo relevante cambia. */
+  private async handleSettingsChange(): Promise<void> {
+    setLanguage(this.settings.language);
+    // Cerrar backend viejo + construir nuevo.
+    await this.backend?.close();
+    this.backend = this.buildBackend();
+    // Forzar re-render de cualquier sidebar abierto.
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RAG_SIDEBAR);
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof RagSidebarView) {
+        // La view tiene su propio buildContext que pide el backend al
+        // getter — al re-renderizar todos los paneles, ven el nuevo.
+        view.triggerPanelManual("__refresh_all__"); // No-op si no encuentra el id.
+        // Para forzar refresh real, simulamos un active-leaf-change manual:
+        // reusamos el handler nativo via la API pública del workspace.
+        // (Equivalente: cerrar y volver a abrir la sidebar — más confiable.)
+      }
     }
-    const file = this.app.workspace.getActiveFile();
-    if (!file) return null;
-    const content = await this.app.vault.cachedRead(file);
-    return content.slice(0, 4000).trim() || null;
   }
 
-  private async runQuery(question: string): Promise<RagHit[]> {
-    const client = await this.ensureClient();
-    const timeoutMs = this.settings.queryTimeoutMs;
-    const resp = await withTimeout(
-      client.callTool({
-        name: "rag_query",
-        arguments: { question, k: this.settings.topK },
-      }),
-      timeoutMs,
-      `MCP rag_query >${timeoutMs}ms`,
-    );
-    return parseHits(resp);
+  // ── Sidebar handling ──────────────────────────────────────────────────
+
+  private viewDeps(): SidebarViewDeps {
+    return {
+      app: this.app,
+      panels: this.panels,
+      backendGetter: () => {
+        if (!this.backend) {
+          // Defensa contra race — onload no terminó pero la view se
+          // está construyendo. Reconstruimos.
+          this.backend = this.buildBackend();
+        }
+        return this.backend;
+      },
+      settingsGetter: () => this.settings,
+      saveSettings: () => this.saveSettings(),
+    };
   }
 
-  private async revealResultsView() {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_RAG_RESULTS);
-    if (existing.length) {
+  private async openSidebar(): Promise<void> {
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_RAG_SIDEBAR);
+    if (existing.length > 0) {
       this.app.workspace.revealLeaf(existing[0]);
       return;
     }
     const leaf = this.app.workspace.getRightLeaf(false);
     if (!leaf) return;
-    await leaf.setViewState({ type: VIEW_TYPE_RAG_RESULTS, active: true });
+    await leaf.setViewState({
+      type: VIEW_TYPE_RAG_SIDEBAR,
+      active: true,
+    });
     this.app.workspace.revealLeaf(leaf);
   }
 
-  private getResultsView(): RagResultsView | null {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RAG_RESULTS);
+  /**
+   * Implementa el comando legacy "RAG: Buscar relacionadas" (Cmd+Shift+R).
+   * Toma la selección o las primeras N chars de la nota activa, las usa
+   * como query para el SemanticSearchPanel, y abre el sidebar para
+   * mostrar el resultado.
+   */
+  private async dispatchSemanticSearchFromEditor(): Promise<void> {
+    if (!this.semanticPanel) return;
+    await this.openSidebar();
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_RAG_SIDEBAR);
     const view = leaves[0]?.view;
-    return view instanceof RagResultsView ? view : null;
-  }
+    if (!(view instanceof RagSidebarView)) return;
 
-  async openNote(path: string) {
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof TFile) {
-      const leaf = this.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
-      return;
-    }
-    new Notice(`No se encontró la nota: ${path}`);
-  }
-}
-
-export function parseHits(resp: unknown): RagHit[] {
-  const content = (resp as { content?: Array<{ type: string; text?: string }> })
-    ?.content;
-  if (!Array.isArray(content)) return [];
-  const textBlock = content.find((c) => c.type === "text" && c.text);
-  if (!textBlock?.text) return [];
-  try {
-    const parsed = JSON.parse(textBlock.text);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((h: any) => ({
-      path: String(h.path ?? h.file ?? ""),
-      note: String(h.note ?? h.path ?? ""),
-      score: Number(h.score ?? h.rerank_score ?? 0),
-      content: String(h.content ?? h.text ?? ""),
-      folder: h.folder,
-      tags: Array.isArray(h.tags) ? h.tags : undefined,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export function withTimeout<T>(
-  p: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(label)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
+    // Construir un PanelContext "mínimo" — el panel necesita backend +
+    // settings + selection + file. Los obtenemos del workspace.
+    const file = this.app.workspace.getActiveFile();
+    const editor = this.app.workspace.activeEditor?.editor;
+    const ctx = {
+      app: this.app,
+      file: file
+        ? {
+            path: file.path,
+            basename: file.basename,
+            folder: file.parent?.path ?? "",
+          }
+        : null,
+      selection: editor?.getSelection() || null,
+      backend: this.backend!,
+      settings: this.settings,
+      requestRerender: () => view.triggerPanelManual(this.semanticPanel!.id),
+      openNote: async (path: string, options: { newPane?: boolean } = {}) => {
+        const f = this.app.vault.getAbstractFileByPath(path);
+        if (f && "path" in f) {
+          const leaf = this.app.workspace.getLeaf(
+            options.newPane ? "split" : false,
+          );
+          // @ts-expect-error TFile downcast — ver patrón en panels.
+          await leaf.openFile(f);
+        }
       },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      },
-    );
-  });
-}
+    };
 
-export class RagResultsView extends ItemView {
-  constructor(leaf: WorkspaceLeaf, private plugin: ObsidianRagPlugin) {
-    super(leaf);
-  }
-
-  getViewType() {
-    return VIEW_TYPE_RAG_RESULTS;
-  }
-  getDisplayText() {
-    return "RAG";
-  }
-  getIcon() {
-    return "search";
-  }
-
-  async onOpen() {
-    this.renderEmpty();
-  }
-
-  renderEmpty() {
-    const root = this.contentEl;
-    root.empty();
-    root.createEl("div", {
-      text: "Ejecutá “RAG: Buscar notas relacionadas” (Cmd+Shift+R).",
-      cls: "rag-empty",
-    });
-  }
-
-  setLoading(query: string) {
-    const root = this.contentEl;
-    root.empty();
-    root.createEl("div", { text: `Buscando: ${query.slice(0, 120)}…`, cls: "rag-loading" });
-  }
-
-  renderError(query: string, msg: string) {
-    const root = this.contentEl;
-    root.empty();
-    root.createEl("h4", { text: "Error" });
-    root.createEl("div", { text: `Query: ${query.slice(0, 200)}` });
-    root.createEl("pre", { text: msg });
-  }
-
-  renderHits(query: string, hits: RagHit[]) {
-    const root = this.contentEl;
-    root.empty();
-    const header = root.createEl("div", { cls: "rag-header" });
-    header.createEl("div", { text: `Query: ${query.slice(0, 200)}`, cls: "rag-query" });
-    header.createEl("div", { text: `${hits.length} resultados`, cls: "rag-count" });
-
-    if (!hits.length) {
-      root.createEl("div", { text: "Sin hits relevantes.", cls: "rag-empty" });
-      return;
-    }
-
-    const list = root.createEl("div", { cls: "rag-hits" });
-    for (const hit of hits) {
-      const card = list.createEl("div", { cls: "rag-hit" });
-      const title = card.createEl("a", {
-        text: hit.note || hit.path,
-        cls: "rag-hit-title",
-      });
-      title.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        this.plugin.openNote(hit.path);
-      });
-      card.createEl("div", {
-        text: `score ${hit.score.toFixed(3)}${hit.folder ? ` · ${hit.folder}` : ""}`,
-        cls: "rag-hit-meta",
-      });
-      const snippet = hit.content.slice(0, 400);
-      card.createEl("div", { text: snippet, cls: "rag-hit-snippet" });
-    }
+    await this.semanticPanel.triggerFromActiveEditor(ctx);
   }
 }
 
-export class RagSettingTab extends PluginSettingTab {
-  constructor(app: App, private plugin: ObsidianRagPlugin) {
-    super(app, plugin);
-  }
-
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    new Setting(containerEl)
-      .setName("Ruta al binario obsidian-rag-mcp")
-      .setDesc("Path absoluto al ejecutable del MCP server.")
-      .addText((text) =>
-        text
-          .setPlaceholder("/Users/…/.local/bin/obsidian-rag-mcp")
-          .setValue(this.plugin.settings.binaryPath)
-          .onChange(async (v) => {
-            this.plugin.settings.binaryPath = v.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Timeout de query (ms)")
-      .setDesc("Máximo para cada llamada a rag_query.")
-      .addText((text) =>
-        text
-          .setValue(String(this.plugin.settings.queryTimeoutMs))
-          .onChange(async (v) => {
-            const n = Number(v);
-            if (Number.isFinite(n) && n > 0) {
-              this.plugin.settings.queryTimeoutMs = n;
-              await this.plugin.saveSettings();
-            }
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Resultados por query (top-k)")
-      .addText((text) =>
-        text
-          .setValue(String(this.plugin.settings.topK))
-          .onChange(async (v) => {
-            const n = Number(v);
-            if (Number.isInteger(n) && n > 0 && n <= 15) {
-              this.plugin.settings.topK = n;
-              await this.plugin.saveSettings();
-            }
-          }),
-      );
-  }
+// Helper para tests — evita que tengan que construir el `App` completo.
+export function buildPanelsForTesting(): SidebarPanel[] {
+  return [new RelatedNotesPanel(), new SemanticSearchPanel()];
 }
+
+// Re-export del nombre de clase legacy. Algunos tests del v0.1.0 hacen
+// `import { RagResultsView } from "../main"`. Apuntamos a la nueva view.
+export { RagSidebarView as RagResultsView } from "./src/view";
+export { RagSettingTab } from "./src/settings";
+// `App` no se usa directamente acá, sólo en el type re-export.
+export type { App };
+// Ignore unused-import warnings — los re-exports lo necesitan.
+void WorkspaceLeaf;

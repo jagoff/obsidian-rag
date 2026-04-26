@@ -1,15 +1,16 @@
-// Bun preload: replace the types-only `obsidian` package with a runtime stub
-// before any test file imports main.ts (which imports from "obsidian").
-// Also stubs the MCP SDK so tests can exercise runQuery() without spawning
-// a real stdio process.
+// Bun preload: mockea los módulos que el plugin importa con stubs runtime.
+// El paquete `obsidian` solo trae .d.ts y los tests no spawnean Electron;
+// el MCP SDK lo stubeamos para no abrir un subprocess real.
+//
+// Configurado en bunfig.toml via `preload = ["./tests/setup.ts"]`.
 import { mock } from "bun:test";
-import * as stub from "./obsidian-stub";
-import * as mcp from "./mcp-stub";
+import * as obsidianStub from "./obsidian-stub";
+import * as mcpStub from "./mcp-stub";
 
-mock.module("obsidian", () => stub);
+mock.module("obsidian", () => obsidianStub);
 mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
-  Client: mcp.Client,
+  Client: mcpStub.Client,
 }));
 mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-  StdioClientTransport: mcp.StdioClientTransport,
+  StdioClientTransport: mcpStub.StdioClientTransport,
 }));

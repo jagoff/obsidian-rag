@@ -1,7 +1,7 @@
 {
   "name": "obsidian-rag-plugin",
-  "version": "0.1.0",
-  "description": "Obsidian plugin que consulta el vault vía el MCP local obsidian-rag-mcp.",
+  "version": "0.2.0",
+  "description": "Sidebar extensible para Obsidian que consulta el RAG local — notas relacionadas (find_related), búsqueda semántica, multi-backend (HTTP/CLI/MCP).",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
-  "keywords": ["obsidian", "rag", "mcp"],
+  "keywords": ["obsidian", "rag", "mcp", "sidebar", "related-notes"],
   "author": "Fernando Ferrari",
   "license": "MIT",
   "devDependencies": {
