@@ -39,6 +39,23 @@ export interface RagSettings {
 
   // i18n
   language: "es" | "en";
+
+  /**
+   * Folders del vault a excluir de los resultados del sidebar. Cada
+   * entry es un path vault-relative (ej. "04-Archive", "00-Inbox/old").
+   * El filter es por prefijo + separador — "04-Archive" matchea
+   * "04-Archive/X.md" y "04-Archive/Sub/Y.md" pero NO "04-Archive2/Z.md".
+   *
+   * Aplica a panels que devuelven items con `path` (related,
+   * contradictions, semantic-search) o `target` (wikilinks). Loops
+   * se NO le aplica porque sus items son strings dentro de la nota
+   * source, no referencias a otras notas.
+   *
+   * El plugin pasa esta lista al backend via `?exclude_folders=...`
+   * (CSV) — filter server-side para no desperdiciar LLM calls de
+   * contradictions.
+   */
+  excludedFolders: string[];
 }
 
 export const DEFAULT_SETTINGS: RagSettings = {
@@ -88,6 +105,12 @@ export const DEFAULT_SETTINGS: RagSettings = {
   },
 
   language: "es",
+
+  // Folders típicamente ruidosos en vaults estilo PARA — el user puede
+  // editar la lista en Settings. Defaults: "04-Archive" (archivos viejos)
+  // + "00-Inbox" (notas no procesadas). Si tu vault no usa esos folders,
+  // el filter es no-op.
+  excludedFolders: ["04-Archive", "00-Inbox"],
 };
 
 // ── Domain shapes ────────────────────────────────────────────────────────
@@ -254,8 +277,23 @@ export interface RagBackend {
    */
   healthCheck(): Promise<BackendHealth>;
 
+  /**
+   * Opciones comunes que aceptan los métodos getX. excludeFolders viene
+   * del settings.excludedFolders del plugin; si está vacío o undefined,
+   * no se aplica filter (retrocompat con tests + clients sin settings).
+   *
+   * Decisión: opts es opcional para no forzar a los tests legacy a
+   * actualizarse. El backend lo trata como `[]` cuando es undefined.
+   */
+  // (interface inline en cada método para que TS infiera mejor en
+  // implementaciones; ver getRelated/getContradictions/etc. más abajo)
+
   /** Notas relacionadas a `path` por shared_tags + graph hops. */
-  getRelated(path: string, limit: number): Promise<RelatedResponse>;
+  getRelated(
+    path: string,
+    limit: number,
+    opts?: { excludeFolders?: string[] },
+  ): Promise<RelatedResponse>;
 
   /**
    * Posibles contradicciones entre `path` y otras notas del vault.
@@ -266,6 +304,7 @@ export interface RagBackend {
   getContradictions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<ContradictionsResponse>;
 
   /**
@@ -273,6 +312,10 @@ export interface RagBackend {
    * para reactive trigger del panel. No usa LLM ni embed, solo regex
    * + frontmatter parse. MCP no tiene una tool equivalente, así que
    * tira NotSupportedError ahí.
+   *
+   * Loops NO acepta excludeFolders — los items son strings dentro de
+   * la nota source, no referencias a otras notas que pudieran caer
+   * en folders excluidos.
    */
   getLoops(path: string, limit: number): Promise<LoopsResponse>;
 
@@ -285,6 +328,7 @@ export interface RagBackend {
   getWikilinkSuggestions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<WikilinkSuggestionsResponse>;
 
   /**

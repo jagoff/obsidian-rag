@@ -303,6 +303,22 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     es: "Habilitado",
     en: "Enabled",
   },
+  "settings.section.filters": {
+    es: "Filtros del vault",
+    en: "Vault filters",
+  },
+  "settings.excluded_folders.name": {
+    es: "Carpetas excluidas",
+    en: "Excluded folders",
+  },
+  "settings.excluded_folders.desc": {
+    es: "Una carpeta por línea (vault-relative, sin / al final). Las notas que vivan adentro de estas carpetas no van a aparecer en \"Notas relacionadas\", \"Contradicciones\" ni \"Wikilinks sugeridos\". Útil para que el archivo (04-Archive) o el inbox sin curar (00-Inbox) no contaminen las sugerencias. Loops abiertos NO se filtran (los items son strings dentro de la nota actual).",
+    en: "One folder per line (vault-relative, no trailing /). Notes inside these folders won't appear in \"Related notes\", \"Contradictions\" nor \"Suggested wikilinks\". Useful to keep archive (04-Archive) or uncurated inbox (00-Inbox) out of suggestions. Open loops are NOT filtered (items are strings inside the current note).",
+  },
+  "settings.excluded_folders.placeholder": {
+    es: "04-Archive\n00-Inbox",
+    en: "04-Archive\n00-Inbox",
+  },
 };
 
 /**

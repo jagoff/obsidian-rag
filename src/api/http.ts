@@ -61,11 +61,18 @@ export class HttpBackend implements RagBackend {
     }
   }
 
-  async getRelated(path: string, limit: number): Promise<RelatedResponse> {
+  async getRelated(
+    path: string,
+    limit: number,
+    opts?: { excludeFolders?: string[] },
+  ): Promise<RelatedResponse> {
     const params = new URLSearchParams({
       path,
       limit: String(limit),
     });
+    if (opts?.excludeFolders && opts.excludeFolders.length > 0) {
+      params.set("exclude_folders", opts.excludeFolders.join(","));
+    }
     const resp = await this.request(
       `/api/notes/related?${params.toString()}`,
       "GET",
@@ -88,10 +95,14 @@ export class HttpBackend implements RagBackend {
   async getContradictions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<ContradictionsResponse> {
     // El endpoint es LLM-bound (5-10s típico). Subimos el timeout por
     // encima del default del backend para cubrir cold-loads del modelo.
     const params = new URLSearchParams({ path, limit: String(limit) });
+    if (opts?.excludeFolders && opts.excludeFolders.length > 0) {
+      params.set("exclude_folders", opts.excludeFolders.join(","));
+    }
     const resp = await this.request(
       `/api/notes/contradictions?${params.toString()}`,
       "GET",
@@ -137,8 +148,12 @@ export class HttpBackend implements RagBackend {
   async getWikilinkSuggestions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<WikilinkSuggestionsResponse> {
     const params = new URLSearchParams({ path, limit: String(limit) });
+    if (opts?.excludeFolders && opts.excludeFolders.length > 0) {
+      params.set("exclude_folders", opts.excludeFolders.join(","));
+    }
     const resp = await this.request(
       `/api/notes/wikilink-suggestions?${params.toString()}`,
       "GET",

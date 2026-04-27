@@ -52,6 +52,10 @@ export class ContradictionsPanel extends BasePanel {
     ttlMs: 30 * 60 * 1000,
   });
 
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   // Track del primer open — sabemos si el user ya miró este panel. Si
   // no lo miró, arrancamos colapsado (le evitamos el loading automático
   // del BasePanel que dispararía el LLM).
@@ -142,7 +146,9 @@ export class ContradictionsPanel extends BasePanel {
   ): Promise<ContradictionsResponse | null> {
     if (!ctx.file) return null;
     const limit = Math.min(ctx.settings.topK, 10);
-    return await ctx.backend.getContradictions(ctx.file.path, limit);
+    return await ctx.backend.getContradictions(ctx.file.path, limit, {
+      excludeFolders: ctx.settings.excludedFolders,
+    });
   }
 
   protected renderEmpty(body: HTMLElement, ctx: PanelContext): void {

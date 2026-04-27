@@ -52,6 +52,7 @@ export class RagSettingTab extends PluginSettingTab {
 
     this.renderBackendSection(containerEl);
     this.renderPanelsSection(containerEl);
+    this.renderFiltersSection(containerEl);
     this.renderAppearanceSection(containerEl);
   }
 
@@ -190,6 +191,51 @@ export class RagSettingTab extends PluginSettingTab {
           this.display(); // Re-render del settings tab.
         }),
       );
+  }
+
+  // ── Filters section ─────────────────────────────────────────────────
+
+  private renderFiltersSection(containerEl: HTMLElement): void {
+    containerEl.createEl("h3", { text: t("settings.section.filters") });
+
+    // Textarea multi-línea: una carpeta por línea. Lo serializamos como
+    // string[] al guardar (split("\n") + trim + filter empty).
+    //
+    // Por qué textarea y no comma-separated: Obsidian Setting() no tiene
+    // un primitive nativo para arrays, y el textarea da mejor UX para
+    // listas largas (cada folder visible en su línea). Usamos
+    // setting.controlEl.createEl("textarea") porque el componente Setting
+    // del API público solo expone .addText/.addTextArea — y .addTextArea
+    // existe pero está documentado a medias; usamos eso.
+    new Setting(containerEl)
+      .setName(t("settings.excluded_folders.name"))
+      .setDesc(t("settings.excluded_folders.desc"))
+      .addTextArea((textArea) => {
+        textArea
+          .setPlaceholder(t("settings.excluded_folders.placeholder"))
+          .setValue(
+            (this.deps.getSettings().excludedFolders ?? []).join("\n"),
+          )
+          .onChange(async (value) => {
+            const parsed = value
+              .split("\n")
+              .map((s) => s.trim().replace(/\/$/, ""))
+              .filter((s) => s.length > 0);
+            this.deps.getSettings().excludedFolders = parsed;
+            await this.deps.saveSettings();
+            // Purgar caches de todos los panels — items previos
+            // están stale (pre-filter o filtrados con la lista vieja).
+            // El BackendMode no cambia por esto, pero onChange() también
+            // dispara un re-render del sidebar que bring fresh data.
+            for (const panel of this.deps.panels) panel.clearCache?.();
+            await this.deps.onChange();
+          });
+        // Hint visual: textarea más alto para que se vean ~5 líneas
+        // sin tener que scrollear adentro.
+        textArea.inputEl.rows = 6;
+        textArea.inputEl.style.width = "100%";
+        textArea.inputEl.style.fontFamily = "var(--font-monospace)";
+      });
   }
 
   // ── Appearance section ──────────────────────────────────────────────

@@ -65,6 +65,10 @@ export class LoopsPanel extends BasePanel {
     ttlMs: 60_000,
   });
 
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   protected loadingMessage(): string {
     return t("panel.loops.loading");
   }

@@ -52,6 +52,10 @@ export class RelatedNotesPanel extends BasePanel {
     ttlMs: 60_000,
   });
 
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   protected loadingMessage(): string {
     return t("panel.related.loading");
   }
@@ -62,7 +66,9 @@ export class RelatedNotesPanel extends BasePanel {
     const cached = this.cache.get(path);
     if (cached) return cached;
     const limit = ctx.settings.topK;
-    const resp = await ctx.backend.getRelated(path, limit);
+    const resp = await ctx.backend.getRelated(path, limit, {
+      excludeFolders: ctx.settings.excludedFolders,
+    });
     this.cache.set(path, resp);
     return resp;
   }

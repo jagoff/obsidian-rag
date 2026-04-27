@@ -1,6 +1,6 @@
 {
   "name": "obsidian-rag-plugin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Sidebar extensible para Obsidian que consulta el RAG local — notas relacionadas (find_related), búsqueda semántica, multi-backend (HTTP/CLI/MCP).",
   "main": "main.js",
   "scripts": {

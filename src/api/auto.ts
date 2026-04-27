@@ -69,22 +69,27 @@ export class AutoBackend implements RagBackend {
     };
   }
 
-  async getRelated(path: string, limit: number): Promise<RelatedResponse> {
+  async getRelated(
+    path: string,
+    limit: number,
+    opts?: { excludeFolders?: string[] },
+  ): Promise<RelatedResponse> {
     return this.tryInOrder(
       "getRelated",
       this.backends,
-      (b) => b.getRelated(path, limit),
+      (b) => b.getRelated(path, limit, opts),
     );
   }
 
   async getContradictions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<ContradictionsResponse> {
     return this.tryInOrder(
       "getContradictions",
       this.backends,
-      (b) => b.getContradictions(path, limit),
+      (b) => b.getContradictions(path, limit, opts),
     );
   }
 
@@ -99,11 +104,12 @@ export class AutoBackend implements RagBackend {
   async getWikilinkSuggestions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<WikilinkSuggestionsResponse> {
     return this.tryInOrder(
       "getWikilinkSuggestions",
       this.backends,
-      (b) => b.getWikilinkSuggestions(path, limit),
+      (b) => b.getWikilinkSuggestions(path, limit, opts),
     );
   }
 

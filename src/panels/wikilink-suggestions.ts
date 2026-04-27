@@ -54,6 +54,10 @@ export class WikilinkSuggestionsPanel extends BasePanel {
     ttlMs: 30_000, // 30s — el panel re-fetchea con modify, no necesita TTL largo.
   });
 
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   protected loadingMessage(): string {
     return t("panel.wikilinks.loading");
   }
@@ -69,7 +73,9 @@ export class WikilinkSuggestionsPanel extends BasePanel {
     // PanelContext en una iteración futura.
     this.cache.invalidate(path);
     const limit = Math.min(ctx.settings.topK * 3, 50);
-    const resp = await ctx.backend.getWikilinkSuggestions(path, limit);
+    const resp = await ctx.backend.getWikilinkSuggestions(path, limit, {
+      excludeFolders: ctx.settings.excludedFolders,
+    });
     this.cache.set(path, resp);
     return resp;
   }

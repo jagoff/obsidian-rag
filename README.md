@@ -97,6 +97,7 @@ npm run build
 | | Timeout de query (ms) | `30000` | Hard kill si el backend tarda más |
 | **Paneles** | Habilitado por panel | `true` | Toggle para apagar paneles |
 | | Reset panel order | — | Vuelve al orden default |
+| **Filtros del vault** | Carpetas excluidas | `04-Archive`, `00-Inbox` | Una carpeta por línea (vault-relative). Las notas adentro NO aparecen en related/contradictions/wikilinks. Loops sí (items son del source). |
 | **Apariencia** | Idioma | `es` | `es` (rioplatense) o `en` |
 | | Resultados por panel (top-k) | `10` | Integer 1..50 |
 
@@ -233,8 +234,28 @@ reales ni Electron.
 
 ## Versión
 
+`v0.6.0` — agrega "Carpetas excluidas" en settings (textarea, una carpeta
+por línea). Las notas dentro de esas carpetas no aparecen en
+"Notas relacionadas", "Contradicciones" ni "Wikilinks sugeridos".
+"Loops abiertos" no se filtra (los items son strings dentro de la nota
+actual, no referencias a otras notas). Defaults: `04-Archive`,
+`00-Inbox`. El filtro se aplica server-side en HTTP y client-side en CLI/MCP
+(con `filterByExcludedFolders`).
+
+`v0.5.0` — agrega panel "Wikilinks sugeridos" reactive (modify trigger
+debounced 800ms). Click en una sugerencia inserta `[[título]]` con
+`editor.replaceRange + offsetToPos` — edición no destructiva, vuelve a
+fetchear sin recargar el editor.
+
+`v0.4.0` — agrega panel "Loops abiertos" (TODOs sin cerrar) reactive,
+cheap (<5ms backend).
+
+`v0.3.0` — agrega panel "Contradicciones" manual (LLM-bound, 5-10s) con
+cache 30 min.
+
 `v0.2.0` — refactor del v0.1.0 (que era una sola view + comando manual
-con MCP) a sidebar extensible plug-and-play con transport mixto.
+con MCP) a sidebar extensible plug-and-play con transport mixto. Panel
+inicial: "Notas relacionadas".
 
 ## License
 

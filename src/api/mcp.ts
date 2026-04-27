@@ -73,14 +73,30 @@ export class McpBackend implements RagBackend {
     }
   }
 
-  async getRelated(path: string, limit: number): Promise<RelatedResponse> {
+  async getRelated(
+    path: string,
+    limit: number,
+    opts?: { excludeFolders?: string[] },
+  ): Promise<RelatedResponse> {
     // Estrategia: usar rag_query con el path como query. NO es lo mismo
     // que find_related (que usa tags + grafo) — éste hace retrieve
     // semántico con la nota como query. Mejor que nada cuando HTTP/CLI
     // no responden, pero documentado: los items vienen sin reason real.
-    const hits = await this.semanticSearch(path, limit);
+    //
+    // Filter de excludedFolders client-side (post-fetch, antes del
+    // slice) — el MCP no acepta el filtro server-side todavía. Aplicamos
+    // ANTES del .slice(0, limit) para no devolver menos items que el
+    // limit cuando algunos hits caen en folders excluidos.
+    const exclude = (opts?.excludeFolders ?? [])
+      .map((f) => f.trim().replace(/\/$/, ""))
+      .filter((f) => f.length > 0);
+    const isExcluded = (p: string) =>
+      exclude.length > 0 &&
+      exclude.some((f) => p === f || p.startsWith(f + "/"));
+    const hits = await this.semanticSearch(path, limit + exclude.length * 2);
     const items: RelatedItem[] = hits
       .filter((h) => h.path && h.path !== path) // Excluir la propia source.
+      .filter((h) => !isExcluded(h.path))
       .slice(0, limit)
       .map((h) => ({
         path: h.path,
@@ -106,6 +122,7 @@ export class McpBackend implements RagBackend {
   async getContradictions(
     _path: string,
     _limit: number,
+    _opts?: { excludeFolders?: string[] },
   ): Promise<ContradictionsResponse> {
     // El MCP server expone `rag_query`, `rag_read_note`, `rag_list_notes`,
     // `rag_links`, `rag_stats`, `rag_followup` + write tools, pero NO
@@ -132,6 +149,7 @@ export class McpBackend implements RagBackend {
   async getWikilinkSuggestions(
     _path: string,
     _limit: number,
+    _opts?: { excludeFolders?: string[] },
   ): Promise<WikilinkSuggestionsResponse> {
     // El MCP server no expone una tool de "wikilink suggestions".
     // Implementarla via rag_query + parse del corpus client-side

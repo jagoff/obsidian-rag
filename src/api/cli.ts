@@ -29,6 +29,7 @@ import {
   type SemanticHit,
   type WikilinkSuggestionsResponse,
 } from "./types";
+import { filterByExcludedFolders } from "../utils/exclude-folders";
 
 // Lazy require para que esbuild no se queje y para que el binding se
 // evalúe en runtime (donde sí existe `child_process`).
@@ -73,7 +74,13 @@ export class CliBackend implements RagBackend {
     }
   }
 
-  async getRelated(path: string, limit: number): Promise<RelatedResponse> {
+  async getRelated(
+    path: string,
+    limit: number,
+    opts?: { excludeFolders?: string[] },
+  ): Promise<RelatedResponse> {
+    // El CLI `rag related` no acepta --exclude-folders todavía. Filter
+    // client-side con el helper que espeja el del backend.
     const args = ["related", path, "--json", "--limit", String(limit)];
     const stdout = await this.execJson(args);
     let parsed: unknown;
@@ -85,8 +92,13 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as RelatedResponse;
+    const items = Array.isArray(body?.items) ? body.items : [];
     return {
-      items: Array.isArray(body?.items) ? body.items : [],
+      items: filterByExcludedFolders(
+        items,
+        opts?.excludeFolders ?? [],
+        (it) => it.path,
+      ),
       source_path: body?.source_path ?? path,
       reason: body?.reason,
     };
@@ -95,6 +107,7 @@ export class CliBackend implements RagBackend {
   async getContradictions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<ContradictionsResponse> {
     // Override del timeout default para acomodar cold-load del chat LLM
     // (5-10s típico + margen). El CLI además paga el bootstrap de Click
@@ -110,8 +123,13 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as ContradictionsResponse;
+    const items = Array.isArray(body?.items) ? body.items : [];
     return {
-      items: Array.isArray(body?.items) ? body.items : [],
+      items: filterByExcludedFolders(
+        items,
+        opts?.excludeFolders ?? [],
+        (it) => it.path,
+      ),
       source_path: body?.source_path ?? path,
       reason: body?.reason,
     };
@@ -139,6 +157,7 @@ export class CliBackend implements RagBackend {
   async getWikilinkSuggestions(
     path: string,
     limit: number,
+    opts?: { excludeFolders?: string[] },
   ): Promise<WikilinkSuggestionsResponse> {
     // El CLI tiene un grupo `wikilinks` con subcomando `suggest --note PATH
     // --json --max-per-note N`. Usamos --note para pasar el path target,
@@ -159,8 +178,15 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as WikilinkSuggestionsResponse;
+    const items = Array.isArray(body?.items) ? body.items : [];
     return {
-      items: Array.isArray(body?.items) ? body.items : [],
+      // Filter por target (path destino del wikilink), no por path source
+      // — el source siempre va a ser la nota actual, no aporta filtrar.
+      items: filterByExcludedFolders(
+        items,
+        opts?.excludeFolders ?? [],
+        (it) => it.target,
+      ),
       source_path: body?.source_path ?? path,
       reason: body?.reason,
     };

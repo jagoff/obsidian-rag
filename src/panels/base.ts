@@ -66,6 +66,17 @@ export interface SidebarPanel {
    * el settings global (top-k, idioma).
    */
   renderSettings?(containerEl: HTMLElement): void;
+
+  /**
+   * Invalida cualquier cache local (LruCache por path, memo de fetch,
+   * etc.) que el panel mantenga. Llamado por el plugin cuando settings
+   * que afectan el resultado del fetch cambian (ej. excludedFolders) y
+   * por lo tanto los items cacheados están stale.
+   *
+   * Default: no-op. Override en panels que cachean (related-notes,
+   * loops, wikilinks, contradictions hoy).
+   */
+  clearCache?(): void;
 }
 
 /**
