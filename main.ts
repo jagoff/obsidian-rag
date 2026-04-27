@@ -37,6 +37,7 @@ import { CliBackend } from "./src/api/cli";
 import { McpBackend } from "./src/api/mcp";
 import { AutoBackend } from "./src/api/auto";
 import { ContradictionsPanel } from "./src/panels/contradictions";
+import { LoopsPanel } from "./src/panels/loops";
 import { RelatedNotesPanel } from "./src/panels/related-notes";
 import { SemanticSearchPanel } from "./src/panels/semantic-search";
 import {
@@ -164,12 +165,14 @@ export default class ObsidianRagPlugin extends Plugin {
 
   private buildPanels(): SidebarPanel[] {
     const related = new RelatedNotesPanel();
+    const loops = new LoopsPanel();
     const contradictions = new ContradictionsPanel();
     this.semanticPanel = new SemanticSearchPanel();
-    // Orden en el sidebar: related (reactive) → contradictions (manual) →
-    // semantic search (manual). El user puede re-ordenar con drag-and-drop,
-    // el cambio persiste en settings.panelOrder.
-    return [related, contradictions, this.semanticPanel];
+    // Orden default: related (reactive) → loops (reactive) →
+    // contradictions (manual, costoso) → semantic search (manual).
+    // El user puede re-ordenar con drag-and-drop; el cambio persiste
+    // en settings.panelOrder.
+    return [related, loops, contradictions, this.semanticPanel];
   }
 
   /** Llamado por SettingsTab cuando algo relevante cambia. */

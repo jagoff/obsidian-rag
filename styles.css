@@ -391,3 +391,89 @@
 .rag-contradictions-start:hover {
   filter: brightness(1.1);
 }
+
+/* ── Loops panel ───────────────────────────────────────────────────────── */
+.rag-loops-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-loops-card {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+}
+.rag-loops-card:last-child {
+  border-bottom: none;
+}
+.rag-loops-card:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Age badge: pill chico, ancho fixed para alinear toda la columna. */
+.rag-loops-age {
+  display: inline-block;
+  min-width: 38px;
+  text-align: center;
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.rag-loops-age-fresh {
+  color: var(--text-on-accent);
+  background: var(--color-green, #2e7d32);
+}
+.rag-loops-age-warm {
+  color: var(--text-on-accent);
+  background: var(--color-yellow, #f57c00);
+}
+.rag-loops-age-stale {
+  color: var(--text-on-accent);
+  background: var(--color-red, #c41e3a);
+}
+
+/* Kind badge: similar al age pero ancho variable, color por kind. */
+.rag-loops-kind {
+  font-size: var(--font-ui-smaller);
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  background: var(--background-modifier-border);
+}
+.rag-loops-kind-todo {
+  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 80%, transparent);
+}
+.rag-loops-kind-checkbox {
+  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--color-cyan, #4a9eff) 80%, transparent);
+}
+.rag-loops-kind-inline {
+  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--color-yellow, #f57c00) 70%, transparent);
+}
+
+/* Texto del loop — el contenido principal. flex:1 para ocupar ancho. */
+.rag-loops-text {
+  flex: 1;
+  color: var(--text-normal);
+  /* Clamp a 2 líneas — loops largos no dominan visualmente. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* Empty state "limpio" (sin loops) — verde, mensaje positivo. */
+.rag-loops-empty-clean {
+  color: var(--color-green, #2e7d32);
+}

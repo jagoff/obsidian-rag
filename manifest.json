@@ -1,7 +1,7 @@
 {
   "id": "obsidian-rag",
   "name": "Obsidian RAG",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "minAppVersion": "1.4.0",
   "description": "Sidebar extensible que muestra notas relacionadas (find_related), búsqueda semántica y datos del vault desde un servidor RAG local. Multi-backend (HTTP / CLI / MCP).",
   "author": "Fernando Ferrari",

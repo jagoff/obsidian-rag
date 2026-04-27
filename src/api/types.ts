@@ -55,9 +55,13 @@ export const DEFAULT_SETTINGS: RagSettings = {
   // Los panels conocidos. El ID del panel = key acá. Los panels que se
   // registran después de la primera carga heredan defaultCollapsed=false
   // y default order al final del stack.
-  panelOrder: ["related-notes", "contradictions", "semantic-search"],
+  panelOrder: ["related-notes", "loops", "contradictions", "semantic-search"],
   panelCollapsed: {
     "related-notes": false,
+    // Loops es reactive y barato — visible default. Es información que
+    // el user quiere ver al toque mientras edita (qué TODOs tiene en
+    // esta nota).
+    "loops": false,
     // Contradictions arranca colapsado — el panel internamente NO dispara
     // el LLM hasta que el user clickea "Analizar" o expande el panel. El
     // colapsado default es defense-in-depth: si algún día el behavior
@@ -67,6 +71,7 @@ export const DEFAULT_SETTINGS: RagSettings = {
   },
   panelEnabled: {
     "related-notes": true,
+    "loops": true,
     "contradictions": true,
     "semantic-search": true,
   },
@@ -137,6 +142,31 @@ export interface ContradictionsResponse {
 }
 
 /**
+ * Item del panel "Loops abiertos" — `_extract_followup_loops`.
+ *
+ * Loops detectados en UNA nota:
+ *   - kind "todo": items del frontmatter `todo:` o `due:`.
+ *   - kind "checkbox": `- [ ]` sin marcar en el body.
+ *   - kind "inline": clausulas imperativas ("tengo que X", "preguntar Y").
+ *
+ * `age_days` = días desde `extracted_at`. 0 = hoy. >14 = stale visualmente.
+ * El panel ordena por age_days desc (más viejo primero) para que los
+ * loops abandonados queden visibles.
+ */
+export interface LoopItem {
+  loop_text: string;
+  kind: "todo" | "checkbox" | "inline";
+  age_days: number;
+  extracted_at: string;
+}
+
+export interface LoopsResponse {
+  items: LoopItem[];
+  source_path: string;
+  reason?: "not_found";
+}
+
+/**
  * Hit de `rag_query` (panel "Búsqueda semántica" — herencia del v0.1.0).
  *
  * Distinto de RelatedItem: éste viene del retrieve+rerank con cross-encoder,
@@ -194,6 +224,14 @@ export interface RagBackend {
     path: string,
     limit: number,
   ): Promise<ContradictionsResponse>;
+
+  /**
+   * Loops abiertos en `path` — TODOs sin cerrar. Cheap (<5ms), apto
+   * para reactive trigger del panel. No usa LLM ni embed, solo regex
+   * + frontmatter parse. MCP no tiene una tool equivalente, así que
+   * tira NotSupportedError ahí.
+   */
+  getLoops(path: string, limit: number): Promise<LoopsResponse>;
 
   /**
    * Semantic search del legacy v0.1.0. Reusa `rag_query` MCP tool. Solo

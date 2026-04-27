@@ -20,6 +20,7 @@ import { requestUrl, type RequestUrlResponse } from "obsidian";
 import {
   type BackendHealth,
   type ContradictionsResponse,
+  type LoopsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -104,6 +105,27 @@ export class HttpBackend implements RagBackend {
       );
     }
     const body = resp.json as ContradictionsResponse;
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getLoops(path: string, limit: number): Promise<LoopsResponse> {
+    // Cheap endpoint (<5ms server-side), no LLM. Usamos el timeout
+    // default del backend (5s) — sobra de lejos.
+    const params = new URLSearchParams({ path, limit: String(limit) });
+    const resp = await this.request(
+      `/api/notes/loops?${params.toString()}`,
+      "GET",
+    );
+    if (resp.status !== 200) {
+      throw new Error(
+        `getLoops: HTTP ${resp.status} ${this.detail(resp)}`.trim(),
+      );
+    }
+    const body = resp.json as LoopsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,

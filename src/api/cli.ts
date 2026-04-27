@@ -22,6 +22,7 @@
 import {
   type BackendHealth,
   type ContradictionsResponse,
+  type LoopsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -108,6 +109,25 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as ContradictionsResponse;
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getLoops(path: string, limit: number): Promise<LoopsResponse> {
+    const args = ["loops", path, "--json", "--limit", String(limit)];
+    const stdout = await this.execJson(args);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stdout);
+    } catch (err) {
+      throw new Error(
+        `CLI no devolvió JSON válido: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    const body = parsed as LoopsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,

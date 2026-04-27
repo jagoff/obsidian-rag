@@ -134,6 +134,24 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "Tension:",
   },
 
+  // Panel: Loops ─────────────────────────────────────
+  "panel.loops.title": {
+    es: "Loops abiertos",
+    en: "Open loops",
+  },
+  "panel.loops.loading": {
+    es: "Buscando loops...",
+    en: "Looking for loops...",
+  },
+  "panel.loops.empty": {
+    es: "✓ Sin loops abiertos en esta nota.",
+    en: "✓ No open loops in this note.",
+  },
+  "panel.loops.empty.not_found": {
+    es: "Esta nota no existe en el vault.",
+    en: "This note doesn't exist in the vault.",
+  },
+
   // Panel: Semantic Search ───────────────────────────
   "panel.semantic.title": {
     es: "Búsqueda semántica",

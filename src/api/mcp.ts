@@ -31,6 +31,7 @@ import { parseHits } from "../utils/parse-hits";
 import {
   type BackendHealth,
   type ContradictionsResponse,
+  type LoopsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedItem,
@@ -117,6 +118,14 @@ export class McpBackend implements RagBackend {
     // alcanza y este throw se propaga al panel → renderea "backend no
     // soporta contradicciones" con link a settings para cambiar a auto.
     throw new NotSupportedError(this.name, "getContradictions");
+  }
+
+  async getLoops(_path: string, _limit: number): Promise<LoopsResponse> {
+    // El MCP server tiene `rag_followup` (similar pero scope=vault, no
+    // por nota). Mappear MCP → "loops por nota" requeriría parsear todo
+    // el corpus client-side. AutoBackend salta a HTTP/CLI primero, este
+    // throw solo se alcanza si el user forzó backend=mcp en settings.
+    throw new NotSupportedError(this.name, "getLoops");
   }
 
   async semanticSearch(question: string, k: number): Promise<SemanticHit[]> {

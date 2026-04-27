@@ -19,6 +19,7 @@ import { AutoBackend } from "../src/api/auto";
 import {
   type BackendHealth,
   type ContradictionsResponse,
+  type LoopsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -38,6 +39,10 @@ class FakeBackend implements RagBackend {
     items: [],
     source_path: "",
   });
+  getLoopsFn: () => Promise<LoopsResponse> = async () => ({
+    items: [],
+    source_path: "",
+  });
   semanticSearchFn: () => Promise<SemanticHit[]> = async () => [];
 
   constructor(name: string) {
@@ -54,6 +59,10 @@ class FakeBackend implements RagBackend {
   async getContradictions(): Promise<ContradictionsResponse> {
     this.callCount++;
     return this.getContradictionsFn();
+  }
+  async getLoops(): Promise<LoopsResponse> {
+    this.callCount++;
+    return this.getLoopsFn();
   }
   async semanticSearch(): Promise<SemanticHit[]> {
     this.callCount++;
@@ -224,6 +233,57 @@ describe("AutoBackend.getContradictions", () => {
     const resp = await auto.getContradictions("src.md", 5);
     expect(resp.reason).toBe("empty_index");
     expect(resp.items).toEqual([]);
+  });
+});
+
+describe("AutoBackend.getLoops", () => {
+  test("HTTP responde → CLI/MCP no se llaman", async () => {
+    http.getLoopsFn = async () => ({
+      items: [
+        { loop_text: "llamar a juan", kind: "todo", age_days: 3, extracted_at: "2026-04-23T10:00:00" },
+      ],
+      source_path: "Plan.md",
+    });
+    const resp = await auto.getLoops("Plan.md", 50);
+    expect(resp.items.length).toBe(1);
+    expect(resp.items[0].kind).toBe("todo");
+    expect(http.callCount).toBe(1);
+    expect(cli.callCount).toBe(0);
+    expect(mcp.callCount).toBe(0);
+  });
+
+  test("HTTP throws → CLI fallback con mismo shape", async () => {
+    http.getLoopsFn = async () => {
+      throw new Error("ECONNREFUSED");
+    };
+    cli.getLoopsFn = async () => ({
+      items: [{ loop_text: "x", kind: "checkbox", age_days: 0, extracted_at: "" }],
+      source_path: "Plan.md",
+    });
+    const resp = await auto.getLoops("Plan.md", 50);
+    expect(resp.items[0].kind).toBe("checkbox");
+    expect(cli.callCount).toBe(1);
+  });
+
+  test("MCP NotSupported no marca down (siguiente call funciona)", async () => {
+    mcp.getLoopsFn = async () => {
+      throw new NotSupportedError("mcp", "getLoops");
+    };
+    http.getLoopsFn = async () => ({
+      items: [], source_path: "Plan.md",
+    });
+    const resp = await auto.getLoops("Plan.md", 50);
+    expect(resp.items).toEqual([]);
+    // HTTP respondió, MCP nunca se invocó.
+    expect(mcp.callCount).toBe(0);
+  });
+
+  test("reason=not_found se propaga", async () => {
+    http.getLoopsFn = async () => ({
+      items: [], source_path: "ghost.md", reason: "not_found",
+    });
+    const resp = await auto.getLoops("ghost.md", 50);
+    expect(resp.reason).toBe("not_found");
   });
 });
 
