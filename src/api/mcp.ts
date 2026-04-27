@@ -30,6 +30,8 @@ import { withTimeout } from "../utils/timeout";
 import { parseHits } from "../utils/parse-hits";
 import {
   type BackendHealth,
+  type ContradictionsResponse,
+  NotSupportedError,
   type RagBackend,
   type RelatedItem,
   type RelatedResponse,
@@ -97,6 +99,24 @@ export class McpBackend implements RagBackend {
         reason: "tags",
       }));
     return { items, source_path: path };
+  }
+
+  async getContradictions(
+    _path: string,
+    _limit: number,
+  ): Promise<ContradictionsResponse> {
+    // El MCP server expone `rag_query`, `rag_read_note`, `rag_list_notes`,
+    // `rag_links`, `rag_stats`, `rag_followup` + write tools, pero NO
+    // una herramienta para contradicciones. Podríamos fakearlo embedding
+    // el body + pulling chunks + reranking localmente, pero el paso
+    // final (clasificación "contradice vs complementa") necesita el
+    // chat LLM — que es lo mismo que el HTTP endpoint hace. No agrega
+    // valor y corre el riesgo de divergir del shape canónico.
+    //
+    // Si el user forzó backend=mcp en settings, AutoBackend no lo
+    // alcanza y este throw se propaga al panel → renderea "backend no
+    // soporta contradicciones" con link a settings para cambiar a auto.
+    throw new NotSupportedError(this.name, "getContradictions");
   }
 
   async semanticSearch(question: string, k: number): Promise<SemanticHit[]> {

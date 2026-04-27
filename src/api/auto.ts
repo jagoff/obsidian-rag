@@ -23,6 +23,7 @@
  */
 import {
   type BackendHealth,
+  type ContradictionsResponse,
   type RagBackend,
   type RelatedResponse,
   type SemanticHit,
@@ -71,6 +72,17 @@ export class AutoBackend implements RagBackend {
       "getRelated",
       this.backends,
       (b) => b.getRelated(path, limit),
+    );
+  }
+
+  async getContradictions(
+    path: string,
+    limit: number,
+  ): Promise<ContradictionsResponse> {
+    return this.tryInOrder(
+      "getContradictions",
+      this.backends,
+      (b) => b.getContradictions(path, limit),
     );
   }
 

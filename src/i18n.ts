@@ -96,6 +96,44 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "Copy wikilink",
   },
 
+  // Panel: Contradictions ────────────────────────────
+  "panel.contradictions.title": {
+    es: "Posibles contradicciones",
+    en: "Possible contradictions",
+  },
+  "panel.contradictions.idle": {
+    es: "El análisis de contradicciones usa un LLM (~10s por nota). Click para arrancar.",
+    en: "Contradiction analysis uses an LLM (~10s per note). Click to start.",
+  },
+  "panel.contradictions.idle_action": {
+    es: "Analizar esta nota",
+    en: "Analyze this note",
+  },
+  "panel.contradictions.loading": {
+    es: "Buscando contradicciones con el LLM... (puede tardar ~10s)",
+    en: "Looking for contradictions via LLM... (may take ~10s)",
+  },
+  "panel.contradictions.empty": {
+    es: "✓ No se encontraron contradicciones entre esta nota y otras del vault.",
+    en: "✓ No contradictions found between this note and others in the vault.",
+  },
+  "panel.contradictions.empty.too_short": {
+    es: "Nota muy corta (<200 chars) para analizar. Escribí más prosa y reintentá.",
+    en: "Note too short (<200 chars) to analyze. Add more prose and retry.",
+  },
+  "panel.contradictions.empty.not_indexed": {
+    es: "Esta nota no está indexada. Corré `rag index` o esperá al watcher.",
+    en: "This note isn't indexed. Run `rag index` or wait for the watcher.",
+  },
+  "panel.contradictions.empty.empty_index": {
+    es: "El índice está vacío. Corré `rag index` para indexar el vault.",
+    en: "Index is empty. Run `rag index` to index your vault.",
+  },
+  "panel.contradictions.why_prefix": {
+    es: "Tensión:",
+    en: "Tension:",
+  },
+
   // Panel: Semantic Search ───────────────────────────
   "panel.semantic.title": {
     es: "Búsqueda semántica",

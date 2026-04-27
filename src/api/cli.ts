@@ -21,6 +21,7 @@
  */
 import {
   type BackendHealth,
+  type ContradictionsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -82,6 +83,31 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as RelatedResponse;
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getContradictions(
+    path: string,
+    limit: number,
+  ): Promise<ContradictionsResponse> {
+    // Override del timeout default para acomodar cold-load del chat LLM
+    // (5-10s típico + margen). El CLI además paga el bootstrap de Click
+    // + imports de torch (~300-500ms más).
+    const args = ["contradictions", path, "--json", "--limit", String(limit)];
+    const stdout = await this.execJson(args, 60_000);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stdout);
+    } catch (err) {
+      throw new Error(
+        `CLI no devolvió JSON válido: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    const body = parsed as ContradictionsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,

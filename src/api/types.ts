@@ -55,13 +55,19 @@ export const DEFAULT_SETTINGS: RagSettings = {
   // Los panels conocidos. El ID del panel = key acá. Los panels que se
   // registran después de la primera carga heredan defaultCollapsed=false
   // y default order al final del stack.
-  panelOrder: ["related-notes", "semantic-search"],
+  panelOrder: ["related-notes", "contradictions", "semantic-search"],
   panelCollapsed: {
     "related-notes": false,
+    // Contradictions arranca colapsado — el panel internamente NO dispara
+    // el LLM hasta que el user clickea "Analizar" o expande el panel. El
+    // colapsado default es defense-in-depth: si algún día el behavior
+    // cambia a auto-fetch, el user no pagó los 10s del LLM sin pedirlo.
+    "contradictions": true,
     "semantic-search": true,
   },
   panelEnabled: {
     "related-notes": true,
+    "contradictions": true,
     "semantic-search": true,
   },
 
@@ -94,6 +100,40 @@ export interface RelatedResponse {
   items: RelatedItem[];
   source_path: string;
   reason?: "empty_index" | "not_indexed";
+}
+
+/**
+ * Item del panel "Posibles contradicciones" — `find_contradictions_for_note`.
+ *
+ * `why` es la razón del LLM (<20 palabras) explicando la tensión entre
+ * la nota source y el fragmento `snippet` de la nota vecina. Es la señal
+ * más valiosa del feature: sin el `why`, el user tendría que leer el
+ * snippet completo + recordar lo que dice su propia nota para entender
+ * por qué aparece ahí.
+ *
+ * Diferencia con RelatedItem:
+ *   - No hay `tags/shared_tags/score/reason` — el algoritmo es LLM
+ *     clasificación, no heurística.
+ *   - `snippet` es markdown plano (~280 chars) — no necesita highlight.
+ */
+export interface ContradictionItem {
+  path: string;
+  note: string;
+  folder: string;
+  snippet: string;
+  why: string;
+}
+
+export interface ContradictionsResponse {
+  items: ContradictionItem[];
+  source_path: string;
+  /**
+   * Estados explícitos cuando `items=[]`:
+   *   - "empty_index": el corpus no tiene nada indexado.
+   *   - "not_indexed" | "not_found": la nota source no está en el vault.
+   *   - "too_short": body < 200 chars (el LLM necesita prosa).
+   */
+  reason?: "empty_index" | "not_indexed" | "not_found" | "too_short";
 }
 
 /**
@@ -143,6 +183,17 @@ export interface RagBackend {
 
   /** Notas relacionadas a `path` por shared_tags + graph hops. */
   getRelated(path: string, limit: number): Promise<RelatedResponse>;
+
+  /**
+   * Posibles contradicciones entre `path` y otras notas del vault.
+   * LLM-bound (5-10s por call), el panel lo usa con manual trigger +
+   * cache agresivo. Los backends que no lo soportan tiran
+   * NotSupportedError (ej. MCP no tiene una tool equivalente hoy).
+   */
+  getContradictions(
+    path: string,
+    limit: number,
+  ): Promise<ContradictionsResponse>;
 
   /**
    * Semantic search del legacy v0.1.0. Reusa `rag_query` MCP tool. Solo

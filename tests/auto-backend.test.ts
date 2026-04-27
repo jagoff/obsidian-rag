@@ -18,6 +18,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { AutoBackend } from "../src/api/auto";
 import {
   type BackendHealth,
+  type ContradictionsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -33,6 +34,10 @@ class FakeBackend implements RagBackend {
     items: [],
     source_path: "",
   });
+  getContradictionsFn: () => Promise<ContradictionsResponse> = async () => ({
+    items: [],
+    source_path: "",
+  });
   semanticSearchFn: () => Promise<SemanticHit[]> = async () => [];
 
   constructor(name: string) {
@@ -45,6 +50,10 @@ class FakeBackend implements RagBackend {
   async getRelated(): Promise<RelatedResponse> {
     this.callCount++;
     return this.getRelatedFn();
+  }
+  async getContradictions(): Promise<ContradictionsResponse> {
+    this.callCount++;
+    return this.getContradictionsFn();
   }
   async semanticSearch(): Promise<SemanticHit[]> {
     this.callCount++;
@@ -156,6 +165,65 @@ describe("AutoBackend.semanticSearch", () => {
     const resp = await auto.getRelated("src.md", 5);
     expect(resp.items[0].path).toBe("next.md");
     expect(http.callCount).toBe(2); // HTTP fue invocado de nuevo, no marcado down por NotSupported.
+  });
+});
+
+describe("AutoBackend.getContradictions", () => {
+  test("HTTP responde → CLI/MCP no se llaman", async () => {
+    http.getContradictionsFn = async () => ({
+      items: [{
+        path: "other.md", note: "other", folder: "",
+        snippet: "contradicting text", why: "tensión LLM",
+      }],
+      source_path: "src.md",
+    });
+    const resp = await auto.getContradictions("src.md", 5);
+    expect(resp.items.length).toBe(1);
+    expect(resp.items[0].why).toBe("tensión LLM");
+    expect(http.callCount).toBe(1);
+    expect(cli.callCount).toBe(0);
+    expect(mcp.callCount).toBe(0);
+  });
+
+  test("HTTP throws → CLI fallback", async () => {
+    http.getContradictionsFn = async () => {
+      throw new Error("HTTP timeout (LLM cold load)");
+    };
+    cli.getContradictionsFn = async () => ({
+      items: [{
+        path: "x.md", note: "x", folder: "", snippet: "s", why: "w",
+      }],
+      source_path: "src.md",
+    });
+    const resp = await auto.getContradictions("src.md", 5);
+    expect(resp.items[0].path).toBe("x.md");
+    expect(http.callCount).toBe(1);
+    expect(cli.callCount).toBe(1);
+  });
+
+  test("MCP tira NotSupportedError — se saltea, HTTP/CLI no quedan marcados down", async () => {
+    // MCP no implementa contradictions — es NotSupportedError, NO down.
+    // Después de este test, una llamada siguiente a MCP debe seguir
+    // viva (available), solo esa OP no funciona.
+    mcp.getContradictionsFn = async () => {
+      throw new NotSupportedError("mcp", "getContradictions");
+    };
+    http.getContradictionsFn = async () => ({
+      items: [], source_path: "src.md",
+    });
+    const resp = await auto.getContradictions("src.md", 5);
+    expect(resp.items).toEqual([]);
+    expect(http.callCount).toBe(1); // Primero HTTP respondió → cortó ahí.
+    expect(mcp.callCount).toBe(0); // MCP ni se invocó.
+  });
+
+  test("reason empty_index se propaga del HTTP", async () => {
+    http.getContradictionsFn = async () => ({
+      items: [], source_path: "src.md", reason: "empty_index",
+    });
+    const resp = await auto.getContradictions("src.md", 5);
+    expect(resp.reason).toBe("empty_index");
+    expect(resp.items).toEqual([]);
   });
 });
 

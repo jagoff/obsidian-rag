@@ -284,3 +284,110 @@
   margin-bottom: 8px;
   font-size: var(--font-ui-medium);
 }
+
+/* ── Contradictions panel ──────────────────────────────────────────────── */
+.rag-contradictions-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-contradictions-card {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  /* Border-left naranja indica warning — distingue visualmente del
+     panel de related (que no tiene border-left) sin ser tan estridente
+     como rojo. */
+  border-left: 3px solid var(--color-orange, #f57c00);
+  background: color-mix(in srgb, var(--color-orange, #f57c00) 4%, transparent);
+}
+.rag-contradictions-card:last-child {
+  border-bottom: none;
+}
+
+.rag-contradictions-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.rag-contradictions-icon {
+  color: var(--color-orange, #f57c00);
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rag-contradictions-title {
+  font-weight: 600;
+  color: var(--text-accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+.rag-contradictions-title:hover {
+  text-decoration: underline;
+}
+
+.rag-contradictions-folder {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* `why` — la señal más valiosa del card. Visual prominente: color
+   accent, texto un chiquito más grande que el snippet. */
+.rag-contradictions-why {
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  margin: 4px 0 6px 0;
+  line-height: 1.4;
+}
+.rag-contradictions-why-prefix {
+  color: var(--color-orange, #f57c00);
+  font-weight: 600;
+}
+
+/* Snippet en gris — contexto secundario. El user lee el why primero, y
+   si necesita más info, escanea el snippet. */
+.rag-contradictions-snippet {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  /* Clamp a 4 líneas para que cards largas no dominen el sidebar. */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Idle state — call-to-action cuando no hay data ni fetch en curso.
+   Se muestra al primer open del panel (sin cache). Evita que el LLM
+   se dispare automáticamente sin que el user lo pida. */
+.rag-contradictions-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.rag-contradictions-start {
+  padding: 6px 14px;
+  font-size: var(--font-ui-small);
+  border-radius: 5px;
+  background: var(--color-orange, #f57c00);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+}
+.rag-contradictions-start:hover {
+  filter: brightness(1.1);
+}

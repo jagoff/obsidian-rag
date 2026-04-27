@@ -19,6 +19,7 @@
 import { requestUrl, type RequestUrlResponse } from "obsidian";
 import {
   type BackendHealth,
+  type ContradictionsResponse,
   NotSupportedError,
   type RagBackend,
   type RelatedResponse,
@@ -75,6 +76,34 @@ export class HttpBackend implements RagBackend {
     const body = resp.json as RelatedResponse;
     // Defensa contra response shapes inesperados — si el backend cambió
     // y omite `items`, no rompemos al iterar después.
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getContradictions(
+    path: string,
+    limit: number,
+  ): Promise<ContradictionsResponse> {
+    // El endpoint es LLM-bound (5-10s típico). Subimos el timeout por
+    // encima del default del backend para cubrir cold-loads del modelo.
+    const params = new URLSearchParams({ path, limit: String(limit) });
+    const resp = await this.request(
+      `/api/notes/contradictions?${params.toString()}`,
+      "GET",
+      undefined,
+      // 45s: cubre hasta el P99 medido del chat call (5-10s cold +
+      // margen por si el modelo tiene que evictar otro de MPS).
+      45_000,
+    );
+    if (resp.status !== 200) {
+      throw new Error(
+        `getContradictions: HTTP ${resp.status} ${this.detail(resp)}`.trim(),
+      );
+    }
+    const body = resp.json as ContradictionsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,
