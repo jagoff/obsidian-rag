@@ -24,6 +24,7 @@ import {
   type RagBackend,
   type RelatedResponse,
   type SemanticHit,
+  type WikilinkSuggestionsResponse,
 } from "../src/api/types";
 
 class FakeBackend implements RagBackend {
@@ -40,6 +41,10 @@ class FakeBackend implements RagBackend {
     source_path: "",
   });
   getLoopsFn: () => Promise<LoopsResponse> = async () => ({
+    items: [],
+    source_path: "",
+  });
+  getWikilinkSuggestionsFn: () => Promise<WikilinkSuggestionsResponse> = async () => ({
     items: [],
     source_path: "",
   });
@@ -63,6 +68,10 @@ class FakeBackend implements RagBackend {
   async getLoops(): Promise<LoopsResponse> {
     this.callCount++;
     return this.getLoopsFn();
+  }
+  async getWikilinkSuggestions(): Promise<WikilinkSuggestionsResponse> {
+    this.callCount++;
+    return this.getWikilinkSuggestionsFn();
   }
   async semanticSearch(): Promise<SemanticHit[]> {
     this.callCount++;
@@ -284,6 +293,65 @@ describe("AutoBackend.getLoops", () => {
     });
     const resp = await auto.getLoops("ghost.md", 50);
     expect(resp.reason).toBe("not_found");
+  });
+});
+
+describe("AutoBackend.getWikilinkSuggestions", () => {
+  test("HTTP responde → CLI/MCP no se llaman", async () => {
+    http.getWikilinkSuggestionsFn = async () => ({
+      items: [
+        {
+          title: "Boundaries",
+          target: "02-Areas/Boundaries.md",
+          line: 5,
+          char_offset: 142,
+          context: "habla de Boundaries...",
+        },
+      ],
+      source_path: "Source.md",
+    });
+    const resp = await auto.getWikilinkSuggestions("Source.md", 30);
+    expect(resp.items.length).toBe(1);
+    expect(resp.items[0].title).toBe("Boundaries");
+    expect(resp.items[0].char_offset).toBe(142);
+    expect(http.callCount).toBe(1);
+    expect(cli.callCount).toBe(0);
+    expect(mcp.callCount).toBe(0);
+  });
+
+  test("MCP NotSupported → AutoBackend salta sin marcar down", async () => {
+    mcp.getWikilinkSuggestionsFn = async () => {
+      throw new NotSupportedError("mcp", "getWikilinkSuggestions");
+    };
+    http.getWikilinkSuggestionsFn = async () => ({
+      items: [], source_path: "x.md",
+    });
+    const resp = await auto.getWikilinkSuggestions("x.md", 30);
+    expect(resp.items).toEqual([]);
+    expect(mcp.callCount).toBe(0); // HTTP cortó primero.
+  });
+
+  test("HTTP throws → CLI fallback con shape correcto", async () => {
+    http.getWikilinkSuggestionsFn = async () => {
+      throw new Error("ECONNREFUSED");
+    };
+    cli.getWikilinkSuggestionsFn = async () => ({
+      items: [{
+        title: "X", target: "X.md", line: 1, char_offset: 0, context: "c",
+      }],
+      source_path: "Source.md",
+    });
+    const resp = await auto.getWikilinkSuggestions("Source.md", 30);
+    expect(resp.items[0].title).toBe("X");
+    expect(cli.callCount).toBe(1);
+  });
+
+  test("reason=empty_index se propaga del HTTP al user", async () => {
+    http.getWikilinkSuggestionsFn = async () => ({
+      items: [], source_path: "Source.md", reason: "empty_index",
+    });
+    const resp = await auto.getWikilinkSuggestions("Source.md", 30);
+    expect(resp.reason).toBe("empty_index");
   });
 });
 

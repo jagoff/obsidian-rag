@@ -37,6 +37,7 @@ import {
   type RelatedItem,
   type RelatedResponse,
   type SemanticHit,
+  type WikilinkSuggestionsResponse,
 } from "./types";
 
 export class McpBackend implements RagBackend {
@@ -126,6 +127,18 @@ export class McpBackend implements RagBackend {
     // el corpus client-side. AutoBackend salta a HTTP/CLI primero, este
     // throw solo se alcanza si el user forzó backend=mcp en settings.
     throw new NotSupportedError(this.name, "getLoops");
+  }
+
+  async getWikilinkSuggestions(
+    _path: string,
+    _limit: number,
+  ): Promise<WikilinkSuggestionsResponse> {
+    // El MCP server no expone una tool de "wikilink suggestions".
+    // Implementarla via rag_query + parse del corpus client-side
+    // sería complejo y duplicaría lógica del backend. AutoBackend
+    // salta a HTTP/CLI primero — este throw solo se alcanza si el
+    // user forzó backend=mcp en settings.
+    throw new NotSupportedError(this.name, "getWikilinkSuggestions");
   }
 
   async semanticSearch(question: string, k: number): Promise<SemanticHit[]> {

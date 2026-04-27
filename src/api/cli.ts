@@ -27,6 +27,7 @@ import {
   type RagBackend,
   type RelatedResponse,
   type SemanticHit,
+  type WikilinkSuggestionsResponse,
 } from "./types";
 
 // Lazy require para que esbuild no se queje y para que el binding se
@@ -128,6 +129,36 @@ export class CliBackend implements RagBackend {
       );
     }
     const body = parsed as LoopsResponse;
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getWikilinkSuggestions(
+    path: string,
+    limit: number,
+  ): Promise<WikilinkSuggestionsResponse> {
+    // El CLI tiene un grupo `wikilinks` con subcomando `suggest --note PATH
+    // --json --max-per-note N`. Usamos --note para pasar el path target,
+    // --json para el output máquina, y --max-per-note como nuestro limit.
+    const args = [
+      "wikilinks", "suggest",
+      "--note", path,
+      "--json",
+      "--max-per-note", String(limit),
+    ];
+    const stdout = await this.execJson(args);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stdout);
+    } catch (err) {
+      throw new Error(
+        `CLI no devolvió JSON válido: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    const body = parsed as WikilinkSuggestionsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,

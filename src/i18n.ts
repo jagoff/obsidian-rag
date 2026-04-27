@@ -152,6 +152,56 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "This note doesn't exist in the vault.",
   },
 
+  // Panel: Wikilink Suggestions ──────────────────────
+  "panel.wikilinks.title": {
+    es: "Wikilinks sugeridos",
+    en: "Suggested wikilinks",
+  },
+  "panel.wikilinks.loading": {
+    es: "Buscando wikilinks faltantes...",
+    en: "Looking for missing wikilinks...",
+  },
+  "panel.wikilinks.empty": {
+    es: "✓ Sin wikilinks faltantes — todas las menciones ya están linkeadas.",
+    en: "✓ No missing wikilinks — all mentions are linked.",
+  },
+  "panel.wikilinks.empty.empty_index": {
+    es: "El índice está vacío. Corré `rag index` primero.",
+    en: "Index is empty. Run `rag index` first.",
+  },
+  "panel.wikilinks.empty.not_found": {
+    es: "Esta nota no existe en el vault.",
+    en: "This note doesn't exist in the vault.",
+  },
+  "panel.wikilinks.apply": {
+    es: "▶ Aplicar",
+    en: "▶ Apply",
+  },
+  "panel.wikilinks.applied": {
+    es: "✓ Aplicado",
+    en: "✓ Applied",
+  },
+  "panel.wikilinks.line": {
+    es: "línea",
+    en: "line",
+  },
+  "panel.wikilinks.note_changed": {
+    es: "Cambiaste de nota — cancelo el aplicar.",
+    en: "Active note changed — apply cancelled.",
+  },
+  "panel.wikilinks.no_editor": {
+    es: "No hay editor activo para aplicar.",
+    en: "No active editor to apply.",
+  },
+  "panel.wikilinks.offset_invalid": {
+    es: "La posición ya no es válida (texto cambió).",
+    en: "Offset no longer valid (text changed).",
+  },
+  "panel.wikilinks.text_changed": {
+    es: "El texto en esa posición cambió",
+    en: "Text at that position changed",
+  },
+
   // Panel: Semantic Search ───────────────────────────
   "panel.semantic.title": {
     es: "Búsqueda semántica",

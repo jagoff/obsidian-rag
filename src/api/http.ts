@@ -25,6 +25,7 @@ import {
   type RagBackend,
   type RelatedResponse,
   type SemanticHit,
+  type WikilinkSuggestionsResponse,
 } from "./types";
 
 export class HttpBackend implements RagBackend {
@@ -126,6 +127,28 @@ export class HttpBackend implements RagBackend {
       );
     }
     const body = resp.json as LoopsResponse;
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      source_path: body?.source_path ?? path,
+      reason: body?.reason,
+    };
+  }
+
+  async getWikilinkSuggestions(
+    path: string,
+    limit: number,
+  ): Promise<WikilinkSuggestionsResponse> {
+    const params = new URLSearchParams({ path, limit: String(limit) });
+    const resp = await this.request(
+      `/api/notes/wikilink-suggestions?${params.toString()}`,
+      "GET",
+    );
+    if (resp.status !== 200) {
+      throw new Error(
+        `getWikilinkSuggestions: HTTP ${resp.status} ${this.detail(resp)}`.trim(),
+      );
+    }
+    const body = resp.json as WikilinkSuggestionsResponse;
     return {
       items: Array.isArray(body?.items) ? body.items : [],
       source_path: body?.source_path ?? path,

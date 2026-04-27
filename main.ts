@@ -40,6 +40,7 @@ import { ContradictionsPanel } from "./src/panels/contradictions";
 import { LoopsPanel } from "./src/panels/loops";
 import { RelatedNotesPanel } from "./src/panels/related-notes";
 import { SemanticSearchPanel } from "./src/panels/semantic-search";
+import { WikilinkSuggestionsPanel } from "./src/panels/wikilink-suggestions";
 import {
   RagSidebarView,
   VIEW_TYPE_RAG_SIDEBAR,
@@ -166,13 +167,17 @@ export default class ObsidianRagPlugin extends Plugin {
   private buildPanels(): SidebarPanel[] {
     const related = new RelatedNotesPanel();
     const loops = new LoopsPanel();
+    const wikilinks = new WikilinkSuggestionsPanel();
     const contradictions = new ContradictionsPanel();
     this.semanticPanel = new SemanticSearchPanel();
-    // Orden default: related (reactive) → loops (reactive) →
-    // contradictions (manual, costoso) → semantic search (manual).
-    // El user puede re-ordenar con drag-and-drop; el cambio persiste
-    // en settings.panelOrder.
-    return [related, loops, contradictions, this.semanticPanel];
+    // Orden default por costo + utilidad cotidiana:
+    //   related (reactive, cheap) →
+    //   loops (reactive, cheap) →
+    //   wikilinks (reactive, cheap) →
+    //   contradictions (manual, costoso LLM) →
+    //   semantic search (manual, on-demand).
+    // El user puede re-ordenar con drag-and-drop; el cambio persiste.
+    return [related, loops, wikilinks, contradictions, this.semanticPanel];
   }
 
   /** Llamado por SettingsTab cuando algo relevante cambia. */

@@ -28,6 +28,7 @@ import {
   type RagBackend,
   type RelatedResponse,
   type SemanticHit,
+  type WikilinkSuggestionsResponse,
 } from "./types";
 
 interface HealthEntry {
@@ -92,6 +93,17 @@ export class AutoBackend implements RagBackend {
       "getLoops",
       this.backends,
       (b) => b.getLoops(path, limit),
+    );
+  }
+
+  async getWikilinkSuggestions(
+    path: string,
+    limit: number,
+  ): Promise<WikilinkSuggestionsResponse> {
+    return this.tryInOrder(
+      "getWikilinkSuggestions",
+      this.backends,
+      (b) => b.getWikilinkSuggestions(path, limit),
     );
   }
 

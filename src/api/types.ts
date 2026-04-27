@@ -55,13 +55,23 @@ export const DEFAULT_SETTINGS: RagSettings = {
   // Los panels conocidos. El ID del panel = key acá. Los panels que se
   // registran después de la primera carga heredan defaultCollapsed=false
   // y default order al final del stack.
-  panelOrder: ["related-notes", "loops", "contradictions", "semantic-search"],
+  panelOrder: [
+    "related-notes",
+    "loops",
+    "wikilinks",
+    "contradictions",
+    "semantic-search",
+  ],
   panelCollapsed: {
     "related-notes": false,
     // Loops es reactive y barato — visible default. Es información que
     // el user quiere ver al toque mientras edita (qué TODOs tiene en
     // esta nota).
     "loops": false,
+    // Wikilinks también reactive y barato — visible default. Mientras
+    // el user escribe, las sugerencias aparecen para que pueda
+    // densificar el grafo sin pensar.
+    "wikilinks": false,
     // Contradictions arranca colapsado — el panel internamente NO dispara
     // el LLM hasta que el user clickea "Analizar" o expande el panel. El
     // colapsado default es defense-in-depth: si algún día el behavior
@@ -72,6 +82,7 @@ export const DEFAULT_SETTINGS: RagSettings = {
   panelEnabled: {
     "related-notes": true,
     "loops": true,
+    "wikilinks": true,
     "contradictions": true,
     "semantic-search": true,
   },
@@ -167,6 +178,38 @@ export interface LoopsResponse {
 }
 
 /**
+ * Item del panel "Wikilinks sugeridos" — `find_wikilink_suggestions`.
+ *
+ * Detecta strings en el body de la nota source que matchean títulos de
+ * OTRAS notas del corpus pero NO están linkeadas con `[[...]]`.
+ *
+ *   - `title`: el texto detectado (== basename de la target sin .md).
+ *   - `target`: path destino (vault-relative). El plugin usa este path
+ *     para resolver la nota cuando el user clickea "Aplicar".
+ *   - `line`: número de línea 1-indexed (informativo, para el preview
+ *     del card).
+ *   - `char_offset`: offset absoluto desde el inicio del archivo. El
+ *     plugin lo convierte a EditorPosition con `editor.offsetToPos()`
+ *     al aplicar la sugerencia.
+ *   - `context`: ±60 chars alrededor del match (sin newlines), para
+ *     mostrar en el card y que el user vea el contexto sin tener que
+ *     scrollear a la línea.
+ */
+export interface WikilinkSuggestion {
+  title: string;
+  target: string;
+  line: number;
+  char_offset: number;
+  context: string;
+}
+
+export interface WikilinkSuggestionsResponse {
+  items: WikilinkSuggestion[];
+  source_path: string;
+  reason?: "empty_index" | "not_found";
+}
+
+/**
  * Hit de `rag_query` (panel "Búsqueda semántica" — herencia del v0.1.0).
  *
  * Distinto de RelatedItem: éste viene del retrieve+rerank con cross-encoder,
@@ -232,6 +275,17 @@ export interface RagBackend {
    * tira NotSupportedError ahí.
    */
   getLoops(path: string, limit: number): Promise<LoopsResponse>;
+
+  /**
+   * Wikilinks sugeridos para `path` — strings que matchean títulos de
+   * otras notas pero no están linkeadas. Cheap (~50ms para corpus de
+   * 2K títulos). Reactive con modify-debounced trigger. MCP tira
+   * NotSupportedError (no tiene tool equivalente).
+   */
+  getWikilinkSuggestions(
+    path: string,
+    limit: number,
+  ): Promise<WikilinkSuggestionsResponse>;
 
   /**
    * Semantic search del legacy v0.1.0. Reusa `rag_query` MCP tool. Solo
